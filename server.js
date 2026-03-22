@@ -34,6 +34,13 @@ app.use('/api/auth', rateLimit({
   max: 20,
   message: { success: false, message: 'Too many requests, please try again later' },
 }));
+
+app.use('/api/orders', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Too many order requests, please try again later' },
+}));
+
 app.use('/api', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
