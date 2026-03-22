@@ -12,7 +12,7 @@ const errorHandler = require('./middleware/errorHandler');
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
-app.set('trust proxy', 1); // Required for rate limiting behind Render/proxies
+app.set('trust proxy', 1);
 
 connectDB();
 
@@ -21,7 +21,8 @@ app.use(helmet());
 app.use(cors({
   origin: [
     process.env.CLIENT_URL || 'http://localhost:3000',
-    'http://127.0.0.1:5500',   // Live Server (VS Code)
+    'https://fy-lashes.netlify.app',
+    'http://127.0.0.1:5500',
     'http://localhost:5500',
   ],
   credentials: true,
@@ -29,7 +30,7 @@ app.use(cors({
 
 /* ── Rate limiting ── */
 app.use('/api/auth', rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 20,
   message: { success: false, message: 'Too many requests, please try again later' },
 }));
