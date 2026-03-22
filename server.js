@@ -12,6 +12,8 @@ const errorHandler = require('./middleware/errorHandler');
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
+app.set('trust proxy', 1); // Required for rate limiting behind Render/proxies
+
 connectDB();
 
 /* ── Security middleware ── */
@@ -19,7 +21,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     process.env.CLIENT_URL || 'http://localhost:3000',
-    'http://127.0.0.1:5500',
+    'http://127.0.0.1:5500',   // Live Server (VS Code)
     'http://localhost:5500',
   ],
   credentials: true,
@@ -27,7 +29,7 @@ app.use(cors({
 
 /* ── Rate limiting ── */
 app.use('/api/auth', rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000,  // 15 min
   max: 20,
   message: { success: false, message: 'Too many requests, please try again later' },
 }));
