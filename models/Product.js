@@ -1,48 +1,53 @@
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Product name is required'],
-    trim: true,
-    maxlength: [120, 'Name cannot exceed 120 characters'],
+  name: { 
+    type: String, 
+    required: [true, 'Please add a product name'],
+    trim: true
   },
-  description: {
-    type: String,
-    required: [true, 'Description is required'],
-    maxlength: [1000, 'Description cannot exceed 1000 characters'],
+  description: { 
+    type: String, 
+    required: [true, 'Please add a description'] 
   },
-  price: {
-    type: Number,
-    required: [true, 'Price is required'],
-    min: [0, 'Price cannot be negative'],
+  price: { 
+    type: Number, 
+    required: [true, 'Please add a price'] 
   },
-  category: {
-    type: String,
-    required: true,
-    enum: ['natural', 'dramatic', 'wispy', 'glam', 'bridal', 'classic', 'other'],
-    default: 'other',
+  category: { 
+    type: String, 
+    required: [true, 'Please add a category'] 
   },
-  image: {
-    type: String,
-    default: '',
+  // FIX: index: false ensures MongoDB doesn't treat this as a Unique/Required key
+  lashType: { 
+    type: String, 
+    default: '', 
+    index: false 
+  }, 
+  image: { 
+    type: String, 
+    default: 'no-photo.jpg' 
   },
-  inStock: {
-    type: Boolean,
-    default: true,
+  inStock: { 
+    type: Boolean, 
+    default: true 
   },
-  featured: {
-    type: Boolean,
-    default: false,
+  featured: { 
+    type: Boolean, 
+    default: false 
   },
-  stock: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-}, { timestamps: true });
+  stock: { 
+    type: Number, 
+    default: 0 
+  }
+}, { 
+  timestamps: true,
+  // FIX: autoIndex: false prevents the server from crashing if 
+  // the database still has the old 'lashType_1' unique index.
+  autoIndex: false 
+});
 
-/* Text search index */
-productSchema.index({ name: 'text', description: 'text', category: 'text' });
+// Create text index for search functionality
+productSchema.index({ name: 'text', description: 'text' });
 
 module.exports = mongoose.model('Product', productSchema);

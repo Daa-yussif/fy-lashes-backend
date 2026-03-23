@@ -10,15 +10,15 @@ const router = express.Router();
 /* ── Cloudinary config ── */
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  api_key:     process.env.CLOUDINARY_API_KEY,
+  api_secret:  process.env.CLOUDINARY_API_SECRET,
 });
 
 /* ── Multer — Cloudinary storage ── */
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder:          'fy-lashes',
+    folder:           'fy-lashes',
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
     transformation:  [{ width: 800, crop: 'limit', quality: 'auto' }],
   },
@@ -30,17 +30,16 @@ const upload = multer({
 });
 
 /* ═══════════════════════════════════════════
-   PUBLIC ROUTES
+    PUBLIC ROUTES
 ═══════════════════════════════════════════ */
 
-/* GET /api/products */
 router.get('/', async (req, res, next) => {
   try {
     const { category, featured, search, page = 1, limit = 20 } = req.query;
     const filter = {};
-    if (category)            filter.category = category;
+    if (category)             filter.category = category;
     if (featured === 'true') filter.featured = true;
-    if (search)              filter.$text    = { $search: search };
+    if (search)               filter.$text      = { $search: search };
 
     const skip     = (parseInt(page) - 1) * parseInt(limit);
     const total    = await Product.countDocuments(filter);
@@ -53,7 +52,6 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/* GET /api/products/:id */
 router.get('/:id', async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -63,19 +61,21 @@ router.get('/:id', async (req, res, next) => {
 });
 
 /* ═══════════════════════════════════════════
-   ADMIN ROUTES (protected)
+    ADMIN ROUTES (protected)
 ═══════════════════════════════════════════ */
 
-/* POST /api/products — create */
 router.post('/', protect, upload.single('image'), async (req, res, next) => {
   try {
-    const { name, description, price, category, inStock, featured, stock } = req.body;
+    // FIX: Included lashType here
+    const { name, description, price, category, lashType, inStock, featured, stock } = req.body; 
     const image = req.file ? req.file.path : (req.body.image || '');
 
     const product = await Product.create({
-      name, description,
-      price:    parseFloat(price),
+      name, 
+      description,
+      price:     parseFloat(price),
       category,
+      lashType, // FIX: Now saving lashType
       image,
       inStock:  inStock  !== undefined ? inStock  === 'true' : true,
       featured: featured !== undefined ? featured === 'true' : false,
@@ -86,19 +86,19 @@ router.post('/', protect, upload.single('image'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/* PUT /api/products/:id — update */
 router.put('/:id', protect, upload.single('image'), async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
 
-    const fields = ['name', 'description', 'price', 'category', 'inStock', 'featured', 'stock'];
+    // FIX: Added 'lashType' to updateable fields
+    const fields = ['name', 'description', 'price', 'category', 'lashType', 'inStock', 'featured', 'stock'];
     fields.forEach(f => {
       if (req.body[f] !== undefined) {
-        if (f === 'price')                            product[f] = parseFloat(req.body[f]);
-        else if (f === 'stock')                       product[f] = parseInt(req.body[f]);
-        else if (f === 'inStock' || f === 'featured') product[f] = req.body[f] === 'true';
-        else                                          product[f] = req.body[f];
+        if (f === 'price')                                product[f] = parseFloat(req.body[f]);
+        else if (f === 'stock')                           product[f] = parseInt(req.body[f]);
+        else if (f === 'inStock' || f === 'featured')     product[f] = req.body[f] === 'true';
+        else                                              product[f] = req.body[f];
       }
     });
 
@@ -118,7 +118,6 @@ router.put('/:id', protect, upload.single('image'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/* DELETE /api/products/:id */
 router.delete('/:id', protect, async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
