@@ -16,9 +16,11 @@ const productSchema = new mongoose.Schema({
   },
   category: { 
     type: String, 
-    required: [true, 'Please add a category'] 
+    required: [true, 'Please add a category'],
+    // Common values: cluster, mink, strip, accessories, BeginnerSet, glam
+    trim: true
   },
-  // FIX: index: false ensures MongoDB doesn't treat this as a Unique/Required key
+  // lashType used for specific product attributes if needed
   lashType: { 
     type: String, 
     default: '', 
@@ -42,12 +44,15 @@ const productSchema = new mongoose.Schema({
   }
 }, { 
   timestamps: true,
-  // FIX: autoIndex: false prevents the server from crashing if 
-  // the database still has the old 'lashType_1' unique index.
+  // Prevents Mongoose from building indexes automatically if they clash with old ones
   autoIndex: false 
 });
 
-// Create text index for search functionality
-productSchema.index({ name: 'text', description: 'text' });
+// We include 'category' in the text index so search works for "Mink", "Strip", etc.
+productSchema.index({ 
+  name: 'text', 
+  description: 'text', 
+  category: 'text' 
+});
 
 module.exports = mongoose.model('Product', productSchema);
