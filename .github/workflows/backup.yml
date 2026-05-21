@@ -1,0 +1,26 @@
+name: Daily DB Backup
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 2 AM UTC daily
+  workflow_dispatch:       # also allows manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm install
+      - run: node backup.js --db-only
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backups/
+          retention-days: 30
