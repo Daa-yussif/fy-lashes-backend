@@ -4,5 +4,5 @@ uploads/
 *.log
 .DS_Store
 backups/node_modules/
-.env
+
 fy-lashes-backend.env
