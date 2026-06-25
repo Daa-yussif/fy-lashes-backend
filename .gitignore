@@ -3,4 +3,6 @@ node_modules/
 uploads/
 *.log
 .DS_Store
-backups/
+backups/node_modules/
+.env
+fy-lashes-backend.env
