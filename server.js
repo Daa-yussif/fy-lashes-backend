@@ -20,19 +20,33 @@ connectDB();
 // ── Security ───────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: false }));
 
+// ── CORS ───────────────────────────────────────────────────
+// Real frontend: https://fy-lashes.pages.dev
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:3000',
+  process.env.CLIENT_URL || 'https://fy-lashes.pages.dev',
+  'https://fy-lashes.pages.dev',
   'https://fy-lashes-frontend.pages.dev',
 ];
 if (!isProd) {
   allowedOrigins.push(
     'http://127.0.0.1:5500',
     'http://localhost:5500',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'http://localhost:3000'
   );
 }
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+// Also allow Cloudflare preview links like https://1aa97288.fy-lashes.pages.dev
+const previewPattern = /^https:\/\/[a-z0-9-]+\.fy-lashes\.pages\.dev$/;
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // curl / server-to-server
+    const ok = allowedOrigins.includes(origin) || previewPattern.test(origin);
+    cb(null, ok);
+  },
+  credentials: true,
+}));
 
 // ── Rate limiting ──────────────────────────────────────────
 app.use('/api/auth', rateLimit({
@@ -66,7 +80,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth',      require('./routes/auth'));
 app.use('/api/products',  require('./routes/products'));
 app.use('/api/orders',    require('./routes/orders'));
-app.use('/api/discounts', require('./routes/discounts'));   // ✅ moved here
+app.use('/api/discounts', require('./routes/discounts'));
 
 // ── Health check ───────────────────────────────────────────
 app.get('/api/health', (_, res) =>
