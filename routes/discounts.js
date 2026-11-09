@@ -1,16 +1,18 @@
 /**
  * FY LASHES — Discounts Route
  * ─────────────────────────────────────────────────────────────
- * Save as  routes/discounts.js  in your backend, then add to server.js:
+ * Save as  routes/discounts.js  in your backend.
+ * server.js already has:  app.use('/api/discounts', require('./routes/discounts'));
  *
- *   const discountsRouter = require('./routes/discounts');
- *   app.use('/api/discounts', discountsRouter);
+ * PUBLIC:    POST /api/discounts/validate   (cart checks a code)
+ * PROTECTED: everything else (admin only)
  * ─────────────────────────────────────────────────────────────
  */
 
 const express   = require('express');
 const router    = express.Router();
 const mongoose  = require('mongoose');
+const { protect } = require('../middleware/auth');
 
 /* ── Schema ─────────────────────────────────────────────────── */
 const discountSchema = new mongoose.Schema(
@@ -29,83 +31,16 @@ const discountSchema = new mongoose.Schema(
 
 const Discount = mongoose.models.Discount || mongoose.model('Discount', discountSchema);
 
-/* ── GET /api/discounts  (admin) ────────────────────────────── */
-router.get('/', async (req, res) => {
-  try {
-    const discounts = await Discount.find().sort({ createdAt: -1 }).lean();
-    res.json({ success: true, data: discounts });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
-
-/* ── GET /api/discounts/:id  (admin) ────────────────────────── */
-router.get('/:id', async (req, res) => {
-  try {
-    const d = await Discount.findById(req.params.id).lean();
-    if (!d) return res.status(404).json({ success: false, message: 'Not found.' });
-    res.json({ success: true, data: d });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
-
-/* ── POST /api/discounts  (admin) ───────────────────────────── */
-router.post('/', async (req, res) => {
-  try {
-    const { code, type, value, minOrder, maxUses, expiryDate, active } = req.body;
-    if (!code || !type || value == null) {
-      return res.status(400).json({ success: false, message: 'code, type, and value are required.' });
-    }
-    const existing = await Discount.findOne({ code: code.toUpperCase() });
-    if (existing) {
-      return res.status(409).json({ success: false, message: `Code "${code}" already exists.` });
-    }
-    const d = await Discount.create({ code, type, value, minOrder, maxUses, expiryDate, active });
-    res.status(201).json({ success: true, data: d });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(409).json({ success: false, message: 'That code already exists.' });
-    }
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
-
-/* ── PUT /api/discounts/:id  (admin) ────────────────────────── */
-router.put('/:id', async (req, res) => {
-  try {
-    const allowed = ['code','type','value','minOrder','maxUses','expiryDate','active'];
-    const update  = {};
-    allowed.forEach(k => { if (req.body[k] !== undefined) update[k] = req.body[k]; });
-
-    const d = await Discount.findByIdAndUpdate(req.params.id, update, { new: true });
-    if (!d) return res.status(404).json({ success: false, message: 'Not found.' });
-    res.json({ success: true, data: d });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
-
-/* ── DELETE /api/discounts/:id  (admin) ─────────────────────── */
-router.delete('/:id', async (req, res) => {
-  try {
-    const d = await Discount.findByIdAndDelete(req.params.id);
-    if (!d) return res.status(404).json({ success: false, message: 'Not found.' });
-    res.json({ success: true, message: 'Deleted.' });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
-
-/* ── POST /api/discounts/validate  (public — called from cart) ─
+/* ── POST /api/discounts/validate  (PUBLIC — called from cart) ─
    Body: { code, orderTotal }
-   Returns: { success, type, value, discountAmt, message }       */
+   Returns: { success, type, value, discountAmt, message }
+   Defined first so it can never be mistaken for an :id route.   */
 router.post('/validate', async (req, res) => {
   try {
     const { code, orderTotal } = req.body;
     if (!code) return res.status(400).json({ success: false, message: 'No code provided.' });
 
-    const d = await Discount.findOne({ code: code.toUpperCase() });
+    const d = await Discount.findOne({ code: String(code).toUpperCase() });
 
     if (!d)          return res.json({ success: false, message: 'Code not found.' });
     if (!d.active)   return res.json({ success: false, message: 'This code is no longer active.' });
@@ -134,6 +69,74 @@ router.post('/validate', async (req, res) => {
     });
   } catch (err) {
     console.error('validate error:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+/* ── GET /api/discounts  (ADMIN — protected) ────────────────── */
+router.get('/', protect, async (req, res) => {
+  try {
+    const discounts = await Discount.find().sort({ createdAt: -1 }).lean();
+    res.json({ success: true, data: discounts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+/* ── GET /api/discounts/:id  (ADMIN — protected) ────────────── */
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const d = await Discount.findById(req.params.id).lean();
+    if (!d) return res.status(404).json({ success: false, message: 'Not found.' });
+    res.json({ success: true, data: d });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+/* ── POST /api/discounts  (ADMIN — protected) ───────────────── */
+router.post('/', protect, async (req, res) => {
+  try {
+    const { code, type, value, minOrder, maxUses, expiryDate, active } = req.body;
+    if (!code || !type || value == null) {
+      return res.status(400).json({ success: false, message: 'code, type, and value are required.' });
+    }
+    const existing = await Discount.findOne({ code: code.toUpperCase() });
+    if (existing) {
+      return res.status(409).json({ success: false, message: `Code "${code}" already exists.` });
+    }
+    const d = await Discount.create({ code, type, value, minOrder, maxUses, expiryDate, active });
+    res.status(201).json({ success: true, data: d });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: 'That code already exists.' });
+    }
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+/* ── PUT /api/discounts/:id  (ADMIN — protected) ────────────── */
+router.put('/:id', protect, async (req, res) => {
+  try {
+    const allowed = ['code','type','value','minOrder','maxUses','expiryDate','active'];
+    const update  = {};
+    allowed.forEach(k => { if (req.body[k] !== undefined) update[k] = req.body[k]; });
+
+    const d = await Discount.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!d) return res.status(404).json({ success: false, message: 'Not found.' });
+    res.json({ success: true, data: d });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+/* ── DELETE /api/discounts/:id  (ADMIN — protected) ─────────── */
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const d = await Discount.findByIdAndDelete(req.params.id);
+    if (!d) return res.status(404).json({ success: false, message: 'Not found.' });
+    res.json({ success: true, message: 'Deleted.' });
+  } catch (err) {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });

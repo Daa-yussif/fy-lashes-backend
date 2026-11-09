@@ -33,39 +33,56 @@ const upload = multer({
     PUBLIC ROUTES
 ═══════════════════════════════════════════ */
 
+/*
+  GET /api/products
+  - No "limit" in the URL  -> returns ALL matching products (no limit)
+  - ?limit=24&page=2       -> optional pagination if you ever want it
+  - ?category=mink  ?featured=true  ?search=word  still work
+*/
 router.get('/', async (req, res, next) => {
   try {
-    const { category, featured, search, page = 1, limit = 100 } = req.query;
+    const { category, featured, search } = req.query;
     const filter = {};
-    
-    // Support for the new categories from shop.html
+
     if (category && category !== 'all') {
       filter.category = category;
     }
-    
+
     if (featured === 'true') filter.featured = true;
-    
+
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
+        { name:        { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } }
+        { category:    { $regex: search, $options: 'i' } },
       ];
     }
 
-    const skip    = (parseInt(page) - 1) * parseInt(limit);
-    const total   = await Product.countDocuments(filter);
-    const products = await Product.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    const total = await Product.countDocuments(filter);
 
-    res.json({ 
-      success: true, 
-      total, 
-      page: parseInt(page), 
-      pages: Math.ceil(total / parseInt(limit)), 
-      data: products 
+    // Only paginate when the client explicitly asks for a positive limit
+    const limitNum = parseInt(req.query.limit);
+    const usePaging = Number.isInteger(limitNum) && limitNum > 0;
+
+    let query = Product.find(filter).sort({ createdAt: -1 });
+    let page  = 1;
+    let pages = 1;
+
+    if (usePaging) {
+      page = Math.max(parseInt(req.query.page) || 1, 1);
+      pages = Math.ceil(total / limitNum);
+      query = query.skip((page - 1) * limitNum).limit(limitNum);
+    }
+
+    const products = await query;
+
+    res.json({
+      success: true,
+      total,
+      page,
+      pages,
+      count: products.length,
+      data: products,
     });
   } catch (err) { next(err); }
 });
@@ -84,14 +101,14 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', protect, upload.single('image'), async (req, res, next) => {
   try {
-    const { name, description, price, category, lashType, inStock, featured, stock } = req.body; 
+    const { name, description, price, category, lashType, inStock, featured, stock } = req.body;
     const image = req.file ? req.file.path : (req.body.image || '');
 
     const product = await Product.create({
-      name, 
+      name,
       description,
       price:    parseFloat(price),
-      category, // Ensure this matches: cluster, mink, strip, accessories, BeginnerSet, glam
+      category, // cluster, mink, strip, accessories, BeginnerSet, glam
       lashType,
       image,
       inStock:  inStock  !== undefined ? inStock  === 'true' : true,
@@ -111,10 +128,10 @@ router.put('/:id', protect, upload.single('image'), async (req, res, next) => {
     const fields = ['name', 'description', 'price', 'category', 'lashType', 'inStock', 'featured', 'stock'];
     fields.forEach(f => {
       if (req.body[f] !== undefined) {
-        if (f === 'price')                product[f] = parseFloat(req.body[f]);
-        else if (f === 'stock')           product[f] = parseInt(req.body[f]);
+        if (f === 'price')                            product[f] = parseFloat(req.body[f]);
+        else if (f === 'stock')                       product[f] = parseInt(req.body[f]);
         else if (f === 'inStock' || f === 'featured') product[f] = req.body[f] === 'true';
-        else                              product[f] = req.body[f];
+        else                                          product[f] = req.body[f];
       }
     });
 

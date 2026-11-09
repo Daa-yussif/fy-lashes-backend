@@ -3,8 +3,9 @@ const router  = express.Router();
 
 // Use the shared model — NOT an inline schema
 const Order = require('../models/Order');
+const { protect } = require('../middleware/auth');
 
-/* ── POST /api/orders  (public — called from cart.html) ─────── */
+/* ── POST /api/orders  (PUBLIC — called from cart.html) ─────── */
 router.post('/', async (req, res) => {
   try {
     const {
@@ -49,7 +50,8 @@ router.post('/', async (req, res) => {
       total:        Number(total)       || 0,
       discountCode: discountCode        || '',
       discountAmt:  Number(discountAmt) || 0,
-      status:       status              || 'pending',
+      // Public customers can't choose their own status
+      status:       'pending',
     });
 
     return res.status(201).json({ success: true, data: order });
@@ -60,8 +62,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-/* ── GET /api/orders  (admin) ───────────────────────────────── */
-router.get('/', async (req, res) => {
+/* ── GET /api/orders  (ADMIN — protected) ───────────────────── */
+router.get('/', protect, async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 }).lean();
     return res.json({ success: true, data: orders });
@@ -71,9 +73,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-/* ── GET /api/orders/stats/summary  (admin dashboard) ──────── */
+/* ── GET /api/orders/stats/summary  (ADMIN — protected) ─────── */
 // NOTE: this route must be defined BEFORE  /:id  routes
-router.get('/stats/summary', async (req, res) => {
+router.get('/stats/summary', protect, async (req, res) => {
   try {
     const mongoose = require('mongoose');
 
@@ -104,8 +106,8 @@ router.get('/stats/summary', async (req, res) => {
   }
 });
 
-/* ── PUT /api/orders/:id/status  (admin) ────────────────────── */
-router.put('/:id/status', async (req, res) => {
+/* ── PUT /api/orders/:id/status  (ADMIN — protected) ────────── */
+router.put('/:id/status', protect, async (req, res) => {
   try {
     const { status } = req.body;
     const allowed = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
