@@ -62,14 +62,16 @@ router.get('/', async (req, res, next) => {
 
     // Only paginate when the client explicitly asks for a positive limit
     const limitNum = parseInt(req.query.limit);
-    const usePaging = Number.isInteger(limitNum) && limitNum > 0;
+    const pageNum = parseInt(req.query.page);
+    const usePaging = Number.isInteger(limitNum) && limitNum > 0 &&
+      Number.isInteger(pageNum) && pageNum > 0;
 
     let query = Product.find(filter).sort({ createdAt: -1 });
     let page  = 1;
     let pages = 1;
 
     if (usePaging) {
-      page = Math.max(parseInt(req.query.page) || 1, 1);
+      page = pageNum;
       pages = Math.ceil(total / limitNum);
       query = query.skip((page - 1) * limitNum).limit(limitNum);
     }
